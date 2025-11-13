@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Staple, Store } from '../models/types';
-import { createReceiptLine } from '../../src/logic/storage';
+import { createReceiptLine } from '../logic/storage';
 import { fuzzyMatch } from '../logic/utils';
 
 interface Props {
@@ -49,11 +49,7 @@ const ReceiptEditor: React.FC<Props> = ({ staples, onAddReceipt }) => {
       <h3 style={{ marginTop: 0 }}>Log Receipt</h3>
       <label>
         Date
-        <input
-          type="date"
-          value={date}
-          onChange={e => setDate(e.target.value)}
-        />
+        <input type="date" value={date} onChange={e => setDate(e.target.value)} />
       </label>
       <label>
         Store
@@ -64,7 +60,10 @@ const ReceiptEditor: React.FC<Props> = ({ staples, onAddReceipt }) => {
       </label>
       <div style={{ marginTop: '0.5rem' }}>
         {items.map((row, idx) => (
-          <div key={idx} style={{ display: 'grid', gap: '0.5rem', gridTemplateColumns: '2fr 1fr 1fr' }}>
+          <div
+            key={idx}
+            style={{ display: 'grid', gap: '0.5rem', gridTemplateColumns: '2fr 1fr 1fr' }}
+          >
             <input
               aria-label={`Item name ${idx + 1}`}
               placeholder="Item name"

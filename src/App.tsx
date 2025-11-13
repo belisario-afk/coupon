@@ -1,9 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { AppData, Offer, Staple, ReceiptLine, ResaleItem } from './models/types';
-import { loadData, saveData, createStaple, createOffer, createReceiptLine, createResaleItem } from './logic/storage';
+import {
+  loadData,
+  saveData,
+  createStaple,
+  createOffer,
+  createReceiptLine,
+  createResaleItem,
+  importData
+} from './logic/storage';
 import { evaluateStapleOffers } from './logic/scoring';
 import { parseBulkOffers } from './logic/parser';
-import { makeId, ema } from './logic/utils';
 import OfflineBadge from './components/OfflineBadge';
 import OfferForm from './components/forms/OfferForm';
 import BulkPasteParser from './components/forms/BulkPasteParser';
@@ -47,9 +54,7 @@ function App() {
   const evaluations = data.staples.flatMap(staple =>
     evaluateStapleOffers(staple, data.offers, data.settings)
   );
-  const topActions = evaluations
-    .sort((a, b) => b.valueScore - a.valueScore)
-    .slice(0, 5);
+  const topActions = evaluations.sort((a, b) => b.valueScore - a.valueScore).slice(0, 5);
 
   function upsertStaple(s: Staple) {
     setData(d => {
@@ -97,7 +102,9 @@ function App() {
         const curr = new Date(line.date).getTime();
         const diffDays = Math.max(1, (curr - prev) / (1000 * 3600 * 24));
         // EMA update
-        interval = ema(interval, diffDays / line.qty, 0.4);
+        interval = (interval === undefined)
+          ? diffDays / line.qty
+          : 0.4 * (diffDays / line.qty) + 0.6 * interval;
       }
       upsertStaple({
         ...staple,
@@ -141,19 +148,8 @@ function App() {
   }
 
   function performImport(raw: string, mode: 'merge' | 'overwrite') {
-    const imported = mode === 'overwrite'
-      ? JSON.parse(raw)
-      : JSON.parse(raw);
-    // Use logic/storage importData for merging; but here simple direct:
-    // Reuse importData for correctness:
-    try {
-      // dynamic import to keep unify
-      const { importData } = await import('./logic/storage');
-      const merged = importData(raw, mode);
-      setData(merged);
-    } catch (e) {
-      console.error(e);
-    }
+    const merged = importData(raw, mode);
+    setData(merged);
   }
 
   function exportNow() {
@@ -198,7 +194,7 @@ function App() {
                 <div key={o.id} className="card">
                   <strong>{o.title}</strong> <small>({o.store})</small>
                   <div style={{ fontSize: '0.7rem' }}>
-                    Type: {o.valueType} | Amount: {o.valueAmount}{o.valueType === 'percent' ? '%' : '$'} | Base:{' '}
+                    Type: {o.valueType} | Amount: {o.valueType === 'percent' ? `${o.valueAmount}%` : `$${o.valueAmount}`} | Base:{' '}
                     {o.basePrice ?? 'n/a'}
                   </div>
                   {o.notes && <div style={{ fontSize: '0.7rem' }}>{o.notes}</div>}
@@ -229,10 +225,7 @@ function App() {
         {view === 'receipts' && (
           <section>
             <h2>Receipts</h2>
-            <ReceiptEditor
-              staples={data.staples}
-              onAddReceipt={addReceipt}
-            />
+            <ReceiptEditor staples={data.staples} onAddReceipt={addReceipt} />
             <h3>Logged Lines</h3>
             <table aria-label="Receipt lines">
               <thead>
@@ -253,9 +246,7 @@ function App() {
                     <td>{r.name}</td>
                     <td>${r.price.toFixed(2)}</td>
                     <td>{r.qty}</td>
-                    <td>
-                      {data.staples.find(s => s.id === r.matchedStapleId)?.name || '-'}
-                    </td>
+                    <td>{data.staples.find(s => s.id === r.matchedStapleId)?.name || '-'}</td>
                   </tr>
                 ))}
               </tbody>
